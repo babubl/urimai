@@ -46,6 +46,9 @@ a{color:var(--accent)}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 0;flex-wrap:wrap}
 .mark{display:flex;align-items:baseline;gap:10px;font-family:var(--display);font-weight:700;font-size:1.2rem;text-decoration:none;color:var(--ink)}
 .mark span{font-family:var(--tamil);font-weight:600;color:var(--stamp);font-size:1.05rem}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{font-size:.88rem;font-weight:500;text-decoration:none;padding:5px 12px;border-radius:999px;color:var(--muted);border:1px solid var(--line)}
+nav a[aria-current="page"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
 .chip{font-size:.76rem;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:500}
 .chip.warn{background:var(--warn-soft);color:var(--warn)}
@@ -124,11 +127,12 @@ footer{border-top:1px solid var(--line);padding:22px 0 48px;display:flex;flex-di
 <div class="wrap">
 <div class="top">
   <a class="mark" href="#top" id="top">Urimai <span lang="ta">உரிமை</span></a>
-  <div class="chips"><span class="chip">India · health insurance</span><span class="chip warn">Working prototype · not legal advice</span></div>
+  <nav aria-label="Urimai tools"><a href="index.html" aria-current="page">Health claim</a><a href="epf.html">EPF</a></nav>
 </div>
 
 <header class="hero">
   <div class="hero-copy">
+    <div class="chips"><span class="chip">India · health insurance</span><span class="chip warn">Working prototype · not legal advice</span></div>
     <p class="tamil" lang="ta">உரிமை<small>urimai: what is rightfully yours</small></p>
     <h1>A rejected health claim deserves a second reading.</h1>
     <p class="lede">Urimai reads the rejection letter, checks it against the policy wording and IRDAI rules, drafts the appeal, and tracks each deadline from the insurer's grievance desk to the Ombudsman.</p>
@@ -155,6 +159,8 @@ footer{border-top:1px solid var(--line);padding:22px 0 48px;display:flex;flex-di
   <div><h3>What it does not do yet</h3>
     <ul class="plain"><li>Line-by-line analysis of partial deductions.</li><li>A case queue for a team, or reminders.</li><li>Ombudsman complaint forms. It has not been scored against real case outcomes.</li></ul></div>
 </div>
+
+<p class="note" style="margin-top:18px">PF transfer stuck or PF claim rejected? <a href="epf.html">Use the EPF page</a>. It needs no sign-in.</p>
 
 <main id="tool">
 <div class="status" id="status" aria-live="polite"><b>Next step</b><span id="statusText">Add your documents below and run the analysis.</span></div>

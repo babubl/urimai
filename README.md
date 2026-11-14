@@ -22,6 +22,14 @@ A working prototype that helps contest a rejected health insurance claim in Indi
 - The rule library was last checked on 15 Nov 2026 and must be re-checked against current IRDAI text.
 - It has not been scored against real case outcomes.
 
-## Next
+## EPF page (`epf.html`)
 
-EPF claim rejections, using the same engine with a different rule library.
+For PF transfers and claims that are stuck or rejected.
+
+- **Rejection Decoder**: maps the remark from Track Claim Status to the record problem behind it.
+- **Account check-up**: twelve questions about the UAN records, before filing.
+- **Fix Path**: every fix in the order that works, with who has to act and what to keep ready.
+- **Entitlement dates**: what can be claimed and from when, including the pension and tax traps.
+- **Escalation**: the 20-day clock, a grievance draft for EPFiGMS, then CPGRAMS.
+
+The EPF page runs entirely in the browser with no sign-in. AI is used only as an optional fallback for a remark the decoder does not recognise.

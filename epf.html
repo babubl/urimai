@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Urimai EPF</title>
+<meta name="description" content="PF transfer stuck or claim rejected? Urimai decodes the EPFO rejection remark, finds what is blocking the account and gives the fixes in the right order.">
+<meta property="og:title" content="Urimai EPF: find what is blocking your PF">
+<meta property="og:description" content="Decode an EPFO rejection, get a Fix Path in the right order, and see what you can claim and when. No sign-in needed.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+Tamil:wght@600&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Layout idea: a claim file, same desk as the health page. Hero with two stamps, then four numbered stages: decode, check-up, fix path, escalate. */
+:root{
+  --bg:#eef0f3; --surface:#ffffff; --ink:#131b2e; --muted:#566076; --line:#d3d8e2;
+  --accent:#1f3f8f; --accent-ink:#ffffff; --accent-soft:#e3e9f8; --stamp:#b3261e;
+  --good:#17643f; --good-soft:#dff0e6; --warn:#855600; --warn-soft:#faedcd; --bad:#9c2b2b; --bad-soft:#f7e1df;
+  --display:"Bricolage Grotesque","Public Sans",system-ui,sans-serif; --body:"Public Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace; --tamil:"Noto Serif Tamil","Latha",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0f131c; --surface:#181d29; --ink:#e9ecf3; --muted:#9aa4b9; --line:#2f3648;
+    --accent:#93adf5; --accent-ink:#0e1322; --accent-soft:#212a45; --stamp:#f0776e;
+    --good:#7fd0a3; --good-soft:#163225; --warn:#e9be62; --warn-soft:#392d11; --bad:#f09a94; --bad-soft:#3c1e1d;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0f131c; --surface:#181d29; --ink:#e9ecf3; --muted:#9aa4b9; --line:#2f3648;
+  --accent:#93adf5; --accent-ink:#0e1322; --accent-soft:#212a45; --stamp:#f0776e;
+  --good:#7fd0a3; --good-soft:#163225; --warn:#e9be62; --warn-soft:#392d11; --bad:#f09a94; --bad-soft:#3c1e1d;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55}
+.wrap{max-width:920px;margin:0 auto;padding:0 18px}
+h1,h2{font-family:var(--display);text-wrap:balance;margin:0}
+h1{font-weight:700;font-size:clamp(2.1rem,6vw,3.4rem);line-height:1.04;letter-spacing:-.02em}
+h2{font-weight:700;font-size:1.35rem;letter-spacing:-.01em}
+h3{font-size:.95rem;font-weight:600;margin:0}
+p{margin:0}
+a{color:var(--accent)}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:18px 0;flex-wrap:wrap}
+.mark{display:flex;align-items:baseline;gap:10px;font-family:var(--display);font-weight:700;font-size:1.2rem;text-decoration:none;color:var(--ink)}
+.mark span{font-family:var(--tamil);font-weight:600;color:var(--stamp);font-size:1.05rem}
+nav{display:flex;gap:6px;flex-wrap:wrap}
+nav a{font-size:.88rem;font-weight:500;text-decoration:none;padding:5px 12px;border-radius:999px;color:var(--muted);border:1px solid var(--line)}
+nav a[aria-current="page"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font-size:.76rem;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-weight:500}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.hero{display:grid;grid-template-columns:1.25fr .75fr;gap:28px;align-items:center;padding:20px 0 34px}
+.hero-copy{display:flex;flex-direction:column;gap:16px}
+.lede{font-size:1.1rem;color:var(--muted);max-width:56ch}
+.stamps{position:relative;height:210px;background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:18px;font-family:var(--mono);font-size:.74rem;color:var(--muted);overflow:hidden}
+.stamps .lines{display:flex;flex-direction:column;gap:9px}
+.stamps .lines i{display:block;height:7px;border-radius:2px;background:var(--line)}
+.stamp{position:absolute;font-family:var(--display);font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:6px 14px;border:3px solid currentColor;border-radius:6px;font-size:1.05rem}
+.stamp.one{color:var(--stamp);left:16px;top:86px;transform:rotate(-9deg);text-decoration:line-through;text-decoration-thickness:3px;opacity:.75}
+.stamp.two{color:var(--accent);right:14px;bottom:20px;transform:rotate(5deg);background:var(--surface);animation:thud .5s cubic-bezier(.2,1.4,.4,1) .5s both}
+@keyframes thud{from{transform:rotate(5deg) scale(1.7);opacity:0}to{transform:rotate(5deg) scale(1);opacity:1}}
+@media (prefers-reduced-motion:reduce){.stamp.two{animation:none}html{scroll-behavior:auto}}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.steps div{background:var(--surface);padding:16px;display:flex;flex-direction:column;gap:6px}
+.steps p{font-size:.88rem;color:var(--muted)}
+.num{font-family:var(--mono);font-size:.82rem;color:var(--accent);border:1px solid var(--accent);border-radius:4px;padding:1px 7px;align-self:flex-start}
+main{display:flex;flex-direction:column;gap:20px;padding:34px 0 30px}
+section.stage{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:14px}
+.stage-head{display:flex;align-items:baseline;gap:12px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+@media (max-width:700px){.hero,.grid2,.grid3{grid-template-columns:1fr}.steps{grid-template-columns:1fr 1fr}.stamps{height:180px}}
+label{font-size:.85rem;font-weight:500;display:flex;flex-direction:column;gap:5px;min-width:0}
+label small{font-weight:400;color:var(--muted)}
+textarea,input[type=text],input[type=date],input[type=number],select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 10px;width:100%}
+textarea{min-height:90px;resize:vertical;font-size:.9rem;line-height:1.45}
+#griev{min-height:300px;font-family:var(--mono);font-size:.84rem;background:var(--surface)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button,.btn{font:inherit;font-weight:500;border-radius:6px;padding:9px 16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;text-decoration:none;display:inline-block}
+button.primary,.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+button.eg{font-size:.8rem;padding:4px 10px;border-radius:999px;color:var(--muted);background:var(--bg)}
+button:disabled{opacity:.55;cursor:not-allowed}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.note{font-size:.85rem;color:var(--muted)}
+.msg{font-size:.88rem;padding:10px 12px;border-radius:6px;background:var(--warn-soft);color:var(--warn)}
+.msg:empty{display:none}
+.status{border:1px solid var(--line);border-left:4px solid var(--accent);background:var(--surface);border-radius:6px;padding:14px 16px}
+.status b{display:block;font-size:.76rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card{border:1px solid var(--line);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:8px;border-left:4px solid var(--accent)}
+.card.done{border-left-color:var(--good);opacity:.72}
+.card.check{border-left-color:var(--warn)}
+.card-head{display:flex;gap:10px;align-items:flex-start}
+.card-head h3{flex:1}
+.tag{font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+.who{font-size:.74rem;font-weight:600;padding:2px 8px;border-radius:4px;background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+ol.do,ul.plain{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px;font-size:.92rem}
+.list{display:flex;flex-direction:column;gap:10px}
+.qa{display:grid;grid-template-columns:1fr 150px;gap:10px;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:.92rem}
+.qa:first-child{border-top:0}
+.qa small{display:block;color:var(--muted);font-size:.8rem}
+@media (max-width:560px){.qa{grid-template-columns:1fr}}
+.ent{padding:10px 12px;border-radius:6px;background:var(--accent-soft);font-size:.92rem;font-variant-numeric:tabular-nums}
+.ent.warn{background:var(--warn-soft);color:var(--warn)}
+.due{font-size:.88rem;padding:6px 10px;border-radius:6px;background:var(--accent-soft);color:var(--ink);font-variant-numeric:tabular-nums}
+.due.late{background:var(--bad-soft);color:var(--bad)}
+.due:empty{display:none}
+.rule{padding:10px 0;border-top:1px dashed var(--line);font-size:.88rem;display:flex;flex-direction:column;gap:3px}
+.rule .src{color:var(--muted);font-size:.8rem}
+footer{border-top:1px solid var(--line);padding:22px 0 48px;display:flex;flex-direction:column;gap:8px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+<div class="top">
+  <a class="mark" href="index.html">Urimai <span lang="ta">உரிமை</span></a>
+  <nav aria-label="Urimai tools"><a href="index.html">Health claim</a><a href="epf.html" aria-current="page">EPF</a></nav>
+</div>
+
+<header class="hero">
+  <div class="hero-copy">
+    <div class="chips"><span class="chip">India · EPF transfer and claims</span><span class="chip warn">Working prototype · not legal advice</span></div>
+    <h1>PF stuck or rejected? Find the one thing blocking it.</h1>
+    <p class="lede">Most PF claims fail on a record problem, and the fixes only work in a certain order. Urimai decodes the rejection remark, builds your Fix Path in that order, and shows what you can claim and from which date.</p>
+    <div class="row"><a class="btn primary" href="#decode">Decode a rejection</a><a class="btn" href="#checkup">Check my account before I claim</a></div>
+    <p class="note">No sign-in. Nothing you type leaves this browser unless you choose the AI option.</p>
+  </div>
+  <div class="stamps" aria-hidden="true">
+    <div>CLAIM ID · FORM 19 · STATUS</div>
+    <div class="lines" style="margin-top:12px"><i style="width:92%"></i><i style="width:78%"></i><i style="width:85%"></i><i style="width:60%"></i><i style="width:88%"></i><i style="width:70%"></i><i style="width:40%"></i></div>
+    <span class="stamp one">Rejected</span>
+    <span class="stamp two">Fix path found</span>
+  </div>
+</header>
+
+<div class="steps">
+  <div><span class="num">1</span><h3>Decode</h3><p>Paste the remark from Track Claim Status. See what it really means.</p></div>
+  <div><span class="num">2</span><h3>Check-up</h3><p>Twelve questions about your UAN records, before you file.</p></div>
+  <div><span class="num">3</span><h3>Fix Path</h3><p>Every fix, in the order that works, with who has to act.</p></div>
+  <div><span class="num">4</span><h3>Escalate</h3><p>The 20-day clock, a grievance draft, and where to go next.</p></div>
+</div>
+
+<main>
+<div class="status" aria-live="polite"><b>Next step</b><span id="statusText">Paste a rejection remark, or answer the check-up questions.</span></div>
+
+<section class="stage" id="decode" aria-labelledby="hd">
+  <div class="stage-head"><span class="num">1</span><h2 id="hd">Rejection Decoder</h2></div>
+  <label for="remark">Rejection or return remark
+    <small>Copy it from the member portal (Online Services, Track Claim Status) or the SMS. Leave out your UAN and name.</small>
+    <textarea id="remark" spellcheck="false"></textarea>
+  </label>
+  <div class="row" id="examples" aria-label="Example remarks"></div>
+  <div class="row">
+    <button class="primary" id="decodeBtn">Decode</button>
+    <button id="aiBtn" hidden>Ask AI to read this remark</button>
+    <span class="note" id="decodeNote" aria-live="polite"></span>
+  </div>
+  <div class="list" id="decoded"></div>
+</section>
+
+<section class="stage" id="checkup" aria-labelledby="hc">
+  <div class="stage-head"><span class="num">2</span><h2 id="hc">Account check-up</h2></div>
+  <p class="note">Open the member portal (unifiedportal-mem.epfindia.gov.in) in another tab and answer from what you see. Pick "Not sure" if you can't tell; that item goes to the top of your Fix Path as something to check.</p>
+  <label for="goal" style="max-width:420px">What are you trying to do?
+    <select id="goal">
+      <option value="transfer">Transfer old PF into my current account</option>
+      <option value="partial">Withdraw part of my PF while employed or just after leaving</option>
+      <option value="full">Withdraw my full PF after leaving a job</option>
+      <option value="eps">Withdraw the pension (EPS) amount</option>
+      <option value="stuck">My claim is filed but not moving</option>
+    </select>
+  </label>
+  <div id="questions"></div>
+  <div class="grid3">
+    <label for="dJoin">First joined EPF on <small>Start of your earliest PF job.</small><input type="date" id="dJoin"></label>
+    <label for="dExit">Left your last PF job on <small>Leave empty if still employed.</small><input type="date" id="dExit"></label>
+    <label for="epsYears">Pension (EPS) service, years <small>Leave empty to use total service.</small><input type="number" id="epsYears" min="0" max="45" step="0.5"></label>
+  </div>
+  <div class="row"><button class="primary" id="buildBtn">Build my Fix Path</button><button id="resetBtn">Clear everything</button></div>
+</section>
+
+<section class="stage" id="path" aria-labelledby="hp">
+  <div class="stage-head"><span class="num">3</span><h2 id="hp">Your Fix Path</h2></div>
+  <p class="note" id="pathNote">Do the steps from top to bottom. A later fix usually fails until the earlier one is approved. Tick each one when the portal shows it as done.</p>
+  <div class="list" id="pathList"></div>
+  <div id="entWrap" hidden>
+    <h3 style="margin-bottom:8px">What you can claim, and from when</h3>
+    <div class="list" id="ent"></div>
+  </div>
+</section>
+
+<section class="stage" id="escalate" aria-labelledby="he">
+  <div class="stage-head"><span class="num">4</span><h2 id="he">If EPFO does not act</h2></div>
+  <div class="grid3">
+    <label for="tClaim">Claim filed on<input type="date" id="tClaim"></label>
+    <label for="tGriev">EPFiGMS grievance filed on<input type="date" id="tGriev"></label>
+    <label for="tCp">CPGRAMS complaint filed on<input type="date" id="tCp"></label>
+  </div>
+  <p class="due" id="dueClaim"></p>
+  <p class="due" id="dueGriev"></p>
+  <p class="due" id="dueCp"></p>
+  <div class="grid3">
+    <label for="gType">Claim type
+      <select id="gType"><option>Transfer (Form 13)</option><option>Final PF settlement (Form 19)</option><option>Pension withdrawal (Form 10C)</option><option>Advance / part withdrawal (Form 31)</option><option>Monthly pension (Form 10D)</option></select></label>
+    <label for="gId">Claim ID <small>Optional.</small><input type="text" id="gId" autocomplete="off"></label>
+    <label for="gState">Current status
+      <select id="gState"><option value="pending">Pending, no reason given</option><option value="rejected">Rejected or returned</option></select></label>
+  </div>
+  <div class="row"><button class="primary" id="gBtn">Write the grievance</button><button id="gCopy">Copy</button><span class="note" id="gNote" aria-live="polite"></span></div>
+  <textarea id="griev" spellcheck="false" aria-label="Grievance text" placeholder="The grievance text will appear here. File it at epfigms.gov.in under For Employees."></textarea>
+</section>
+
+<section class="stage" id="rulesec" aria-labelledby="hr">
+  <h2 id="hr">Rule library</h2>
+  <p class="note">Every step above points to one of these. Last checked 15 Nov 2026 against EPFO's Citizens' Charter, EPFO circulars and Labour Ministry press releases, and published summaries of them. EPFO rules changed several times in 2025 and 2026, so confirm on the member portal before acting.</p>
+  <div id="rules"></div>
+</section>
+</main>
+
+<footer>
+  <p class="note"><b>Not legal, tax or financial advice.</b> Urimai is an independent prototype. It is not affiliated with EPFO or the Ministry of Labour and Employment, and it cannot see your account.</p>
+  <p class="note">Never share your UAN password or Aadhaar OTP with anyone offering to "fix" your PF.</p>
+  <p class="note">Found a remark the decoder did not recognise? Send it with your feedback on the post where you found this link. Each new remark makes the decoder better.</p>
+</footer>
+</div>
+
+<script src="https://js.puter.com/v2/" async></script>
+<script>
+"use strict";
+/* ---------- rule library ---------- */
+const RULES = [
+ {id:"E1", title:"Claims are to be settled in 20 days", text:"The scheme time limit for settling a complete claim is 20 days. This applies to final withdrawal (Form 19), part withdrawal (Form 31), transfer (Form 13), pension withdrawal (Form 10C) and monthly pension (Form 10D).", source:"EPFO Citizens' Charter (settlement time as per Scheme)"},
+ {id:"E2", title:"Grievances: 7 working days, escalated if not redressed", text:"EPFO's charter sets a general limit of 7 working days for settling a grievance, with escalation to the next higher authority if it is not redressed. EPFO's own instruction to its offices is that no grievance should stay pending in EPFiGMS or CPGRAMS beyond 15 days.", source:"EPFO Citizens' Charter; EPFO circular on redressal of grievances within 15 days"},
+ {id:"E3", title:"Transfers no longer need employer approval in most cases", text:"Since January 2025 most transfer claims do not need the employer's approval when the UAN is Aadhaar-verified. Since the revamped Form 13 (April 2025) the destination office's approval is also gone: once the source office approves, the old account merges into the new one.", source:"EPFO circular of 15 January 2025; Labour Ministry press release, 25 April 2025"},
+ {id:"E4", title:"You can correct most profile details yourself", text:"If the UAN is validated through Aadhaar, the member can update name, date of birth, gender, nationality, parents' names, marital status, spouse name, date of joining and date of leaving without documents. A UAN allotted before 1 October 2017 needs the employer's certification. If the UAN is not linked to Aadhaar, the request goes on paper through the employer to EPFO. If the establishment is closed, a physical joint declaration, attested by an authorised official, is submitted to the EPFO office.", source:"Labour Ministry press release, 18 January 2025; EPFO joint declaration procedure"},
+ {id:"E5", title:"Bank seeding: no cheque image, no employer approval", text:"A claim no longer needs an image of a cheque leaf or bank passbook when the bank account seeded with the UAN is validated by the bank or NPCI. Employer approval for seeding a bank account has been removed.", source:"EPFO circular of 3 April 2025"},
+ {id:"E6", title:"Advance claims up to Rs 5 lakh are auto-settled", text:"The auto-settlement limit for advance claims was raised from Rs 1 lakh to Rs 5 lakh in 2025. Auto-settlement works only when the KYC records are clean.", source:"Labour Ministry announcement, June 2025"},
+ {id:"E7", title:"Withdrawal framework approved in October 2025", text:"Part withdrawals need 12 months of service. 25% of contributions stays as a minimum balance, so up to 75% can be taken, including straight after leaving a job. Full PF settlement during unemployment is allowed after 12 months (earlier 2 months). Pension (EPS) withdrawal is allowed after 36 months (earlier 2 months).", source:"EPFO Central Board of Trustees decisions, 13 October 2025; Labour Ministry clarification"},
+ {id:"E8", title:"Pension: under 10 years withdraw, 10 years or more take pension", text:"With less than 10 years of pension service, the EPS amount can be withdrawn with Form 10C. From 10 years (9.5 years is rounded up), no lump sum is paid: Form 10C gives a Scheme Certificate, and Form 10D gives a monthly pension from age 58, or a reduced pension from age 50.", source:"Employees' Pension Scheme 1995, as summarised in published guides"},
+ {id:"E9", title:"Tax: TDS before 5 years of service", text:"A PF withdrawal before 5 years of continuous service attracts TDS of 10% when the amount is Rs 50,000 or more and PAN is on record, and a much higher rate without PAN. From 1 April 2026, Form 121 replaces Forms 15G and 15H for declaring that your income is below the taxable limit. Service carried by a transfer counts toward the 5 years; a withdrawal breaks it.", source:"Income-tax Act 2025, section 392(7) (earlier section 192A); EPFO circular of 13 April 2026"},
+ {id:"E10", title:"You can mark your own date of exit", text:"If the employer has not recorded your leaving date, you can mark it yourself on the member portal (Manage, Mark Exit) with an Aadhaar OTP. The option usually opens two months after the employer's last contribution.", source:"EPFO member portal facility; published guides"}
+];
+
+/* ---------- defect library: the Decoder and the Fix Path both run on this ---------- */
+const ORDER = ["NAME","AADHAAR","PAN","BANK","DOJ","DOE","CLOSED","MULTI","TRUST","TRANSFER","CONTRIB","EPS","ELIG","TDS","DELAY"];
+const D = {
+ NAME:{title:"Name, date of birth or gender does not match Aadhaar", who:"You", rules:["E4"],
+  why:"Every online claim is checked against Aadhaar. A missing initial or a swapped surname is enough to fail it, and nothing else can be fixed until this is.",
+  steps:["Compare your UAN profile with your Aadhaar card letter by letter, including spaces and initials.","On the member portal open Manage, Joint Declaration, and correct the field that differs.","If Aadhaar itself is wrong, correct Aadhaar first, then come back."],
+  docs:"Aadhaar. If asked: passport, PAN or school certificate for name; birth certificate or marksheet for date of birth.",
+  re:/name.{0,25}(mismatch|differ|not match|incorrect)|mismatch.{0,15}name|date of birth|\bdob\b|gender|father|husband|member details differ/i},
+ AADHAAR:{title:"Aadhaar is not linked or not verified on the UAN", who:"You", rules:["E4","E3"],
+  why:"Without a verified Aadhaar you cannot file online, mark your exit, or transfer without the employer.",
+  steps:["On the member portal open Manage, KYC, and add Aadhaar. The UMANG app can also do this with face authentication.","Wait until the status shows as verified. It will fail if your name or date of birth differs from Aadhaar, so fix that first.","Make sure the mobile number linked to Aadhaar is active, because every later step uses an OTP."],
+  docs:"Aadhaar and the mobile number linked to it.",
+  re:/aadha+r|e-?kyc|kyc.{0,12}(not|mismatch|pending|incomplete)|uan.{0,10}not (active|activated)/i},
+ PAN:{title:"PAN is not verified on the UAN", who:"You", rules:["E9"],
+  why:"The claim can still be paid, but tax is deducted at a much higher rate without a verified PAN.",
+  steps:["On the member portal open Manage, KYC, and add PAN.","The name must match the income-tax record. If it fails, correct the name with the tax department or EPFO, whichever is wrong."],
+  docs:"PAN card.", re:/\bpan\b/i},
+ BANK:{title:"Bank account not verified, or the name or IFSC does not match", who:"You", rules:["E5"],
+  why:"EPFO pays only into a bank account that the bank or NPCI has verified against your UAN.",
+  steps:["On the member portal open Manage, KYC, and add the bank account number and the current IFSC. IFSC codes changed after bank mergers.","Use an active account in your own name, spelled the same as in your UAN.","Wait for the bank or NPCI to verify it. No employer approval and no cheque image are needed now."],
+  docs:"Bank account number and current IFSC.",
+  re:/bank|ifsc|account (number|no)|a\/c|cheque|passbook image|payment (failed|returned)|neft/i},
+ DOJ:{title:"Joining or leaving dates are wrong, or two jobs overlap", who:"You, then employer", rules:["E4"],
+  why:"The system rejects a transfer or claim when service periods overlap or do not match the employer's contribution record.",
+  steps:["Open View, Service History, and check the joining and leaving dates for every member ID.","Correct the wrong date through Manage, Joint Declaration, for that member ID.","If your date disagrees with the employer's contribution record, the request goes to the employer and then EPFO. Follow up with HR."],
+  docs:"Appointment letter, relieving letter, payslips for the first and last months.",
+  re:/overlap|date of joining|\bdoj\b|service.{0,12}mismatch|dates? (differ|mismatch)|concurrent/i},
+ DOE:{title:"Date of exit is missing for a past employer", who:"You", rules:["E10","E4"],
+  why:"A transfer or final settlement cannot be filed while the old employment still looks open.",
+  steps:["Open Manage, Mark Exit. Choose the employer, enter your last working date and the reason, and confirm with the Aadhaar OTP.","If the option is not offered yet, wait until two months after the employer's last contribution, or ask the employer to update it.","Check that the date now shows in Service History."],
+  docs:"Relieving letter or last payslip, for the correct date.",
+  re:/date of (exit|leaving)|\bdoe\b|\bdol\b|exit (date )?(not|missing)|not (marked|updated).{0,20}exit|reason (of|for) (leaving|exit)/i},
+ CLOSED:{title:"Employer is closed or not responding", who:"You, then EPFO", rules:["E4","E3","E5"],
+  why:"Some corrections on older UANs still need the employer. When there is no employer to ask, EPFO has a paper route.",
+  steps:["First check whether you still need the employer at all. With an Aadhaar-verified UAN, most corrections, bank seeding and transfers do not.","If employer certification is required and the establishment is closed, fill the physical joint declaration form, have it attested by an authorised official, and submit it with documents to the Public Relations Officer at your EPFO regional office.","File an EPFiGMS grievance at the same time, saying the employer is closed or has not responded, so there is a dated record."],
+  docs:"Joint declaration form, ID proof, employment proof (appointment letter, payslips, Form 16).",
+  re:/employer.{0,30}(not|pending|reject|closed|dsc|e-?sign)|attestation|digital signature|\bdsc\b|establishment.{0,10}closed/i},
+ MULTI:{title:"You have more than one UAN", who:"You", rules:["E3"],
+  why:"Money under an old UAN stays stranded and its service is not counted for tax or pension.",
+  steps:["Do not withdraw from the old UAN. That breaks your service record.","Make sure your name, date of birth and gender are identical under both UANs and both are Aadhaar-verified.","File a transfer from the old member ID into your current one (Online Services, One Member One EPF Account). The old UAN is merged after the transfer.","If the portal blocks it, file an EPFiGMS grievance asking for the two UANs to be merged, quoting both numbers."],
+  docs:"Both UANs and member IDs.", re:/(multiple|two|duplicate|another|different|second) uan/i},
+ TRUST:{title:"A past employer ran its own PF trust (exempted establishment)", who:"You, then old employer's trust", rules:["E3","E1"],
+  why:"Your old PF money is with that company's trust, not EPFO. The transfer completes only when the trust pays it across and sends Annexure K.",
+  steps:["File the transfer claim online as usual.","Write to the old employer's PF trust or HR asking them to remit the balance and send Annexure K to your present EPFO office. Keep the email.","After the credit, download Annexure K from the portal and check that your pension service came across too.","If nothing moves in 20 days, file an EPFiGMS grievance naming the trust."],
+  docs:"Old trust PF number, relieving letter, transfer claim ID.",
+  re:/exempt|trust|annexure.?k/i},
+ TRANSFER:{title:"Old PF account is not transferred to the current one", who:"You", rules:["E3","E1"],
+  why:"A claim on the current account covers only what is in it. Untransferred service is also left out of the 5-year tax test and the 10-year pension test.",
+  steps:["Open the passbook and check every member ID. An old ID with a balance means it was not transferred.","File the transfer: Online Services, One Member One EPF Account (Transfer Request), and confirm with the Aadhaar OTP.","In most cases no employer approval is needed. The old office approves and the balance merges into the current account.","Download Annexure K afterwards to confirm the pension service moved as well."],
+  docs:"Old and current member IDs.",
+  re:/transfer|previous (account|employer|member id|establishment)|form.?13|not transferred|past service/i},
+ CONTRIB:{title:"Contributions are missing in the passbook", who:"Employer, then EPFO", rules:["E2"],
+  why:"EPFO can settle only what the employer actually deposited.",
+  steps:["Compare the passbook month by month with your payslips and list the missing months.","Send the list to the employer in writing and ask for the deposit.","If it is not corrected, file an EPFiGMS grievance about non-remittance and attach the payslips showing the deduction."],
+  docs:"Payslips for the missing months, passbook download.",
+  re:/contribution|non.?contributory|not remitted|\becr\b|dues not|no balance|nil balance|wages not/i},
+ EPS:{title:"Pension (EPS) claim rejected, or pension service not counted", who:"You", rules:["E8","E7"],
+  why:"The pension part has its own rules. Form 10C fails if your total pension service is 9.5 years or more, if earlier service was never transferred, or if the waiting period is not over.",
+  steps:["Add up pension service across all employers. Annexure K and the passbook's pension column show it.","Under 9.5 years: you can withdraw with Form 10C once the waiting period is over.","9.5 years or more: no lump sum is paid. Apply on Form 10C for a Scheme Certificate now, and Form 10D for a monthly pension from age 58 (reduced pension from 50).","If earlier service is missing, complete the transfer first, then apply."],
+  docs:"Annexure K, service history.",
+  re:/10.?c|10.?d|pension|\beps\b|scheme certificate|9\.5|pensionable/i},
+ ELIG:{title:"The claim was for something not allowed yet", who:"You", rules:["E7","E6"],
+  why:"The form was right for a different situation: service too short, waiting period not over, or more than the permitted share.",
+  steps:["Part withdrawal needs 12 months of service, and 25% of contributions has to stay in the account.","Full PF settlement after leaving a job opens after 12 months without PF employment. Until then you can take up to 75%.","Pension (EPS) withdrawal opens after 36 months.","Re-file with the correct claim type and amount. The dates for your case are worked out below if you enter them in the check-up."],
+  docs:"None, if records are clean.",
+  re:/insufficient service|not eligible|ineligible|service (is )?(less|below)|less than|wrong form|incorrect form|not applicable|limit exceeded|already availed|before.{0,20}months/i},
+ TDS:{title:"Tax was deducted, or the tax declaration is missing", who:"You", rules:["E9"],
+  why:"Withdrawals before 5 years of continuous service are taxed at source when the amount is Rs 50,000 or more.",
+  steps:["Check your total service including transferred service. At 5 years or more, no TDS applies.","If it is under 5 years and your total income for the year is below the taxable limit, upload Form 121 with the claim. It replaced Forms 15G and 15H from 1 April 2026.","Do not sign Form 121 if your income is above the limit. Claim the TDS as credit in your tax return instead.","Make sure PAN is verified, or the rate is much higher."],
+  docs:"PAN, Form 121 if eligible.", re:/15.?g|15.?h|form.?121|\btds\b|tax/i},
+ DELAY:{title:"Claim is pending beyond 20 days with no reason given", who:"EPFO", rules:["E1","E2"],
+  why:"A complete claim is meant to be settled in 20 days. After that, the delay itself is a valid grievance.",
+  steps:["Take a screenshot of Track Claim Status showing the claim date.","File a grievance at epfigms.gov.in (For Employees) with the claim ID and date. Section 4 below writes the text for you.","If it is unanswered after 15 days, file on CPGRAMS (pgportal.gov.in) under the Ministry of Labour and Employment, quoting the EPFiGMS number."],
+  docs:"Claim ID, claim date, screenshot of status.",
+  re:/pending|under process|in process|no response|not settled/i}
+};
+const EXAMPLES = ["Date of exit not updated by employer","Name mismatch between UAN and bank account","Claim rejected - member KYC not approved","Previous employer has not approved transfer","Insufficient service period","Form 10C not applicable","Date of birth mismatch in EPFO records","Service overlap with previous establishment","Form 15G not submitted"];
+
+const QUESTIONS = [
+ {k:"aadhaar", q:"Is Aadhaar linked and shown as verified?", h:"Manage, KYC", bad:"no", d:"AADHAAR"},
+ {k:"match", q:"Do name, date of birth and gender match Aadhaar exactly?", h:"View, Profile", bad:"no", d:"NAME"},
+ {k:"pre2017", q:"Did you get your UAN before 1 October 2017?", h:"Roughly, did your first PF job start before then", info:true},
+ {k:"pan", q:"Is PAN verified?", h:"Manage, KYC", bad:"no", d:"PAN"},
+ {k:"bank", q:"Is your bank account verified, in your name, with the current IFSC?", h:"Manage, KYC", bad:"no", d:"BANK"},
+ {k:"overlap", q:"Do any two jobs overlap, or is a joining date wrong?", h:"View, Service History", bad:"yes", d:"DOJ"},
+ {k:"doe", q:"Does every past employer show a date of exit?", h:"View, Service History", bad:"no", d:"DOE"},
+ {k:"closed", q:"Is a past employer closed or not responding?", h:"", bad:"yes", d:"CLOSED"},
+ {k:"multi", q:"Do you have more than one UAN?", h:"Old payslips sometimes show a different UAN", bad:"yes", d:"MULTI"},
+ {k:"trust", q:"Did any past employer run its own PF trust?", h:"Usually large companies; the PF statement came from the company", bad:"yes", d:"TRUST"},
+ {k:"moved", q:"Is every old PF account transferred into the current one?", h:"Passbook: old member IDs should show a transfer-out", bad:"no", d:"TRANSFER"},
+ {k:"missing", q:"Are any months of contribution missing in the passbook?", h:"Compare with payslips", bad:"yes", d:"CONTRIB"}
+];
+
+/* ---------- state ---------- */
+const $ = id => document.getElementById(id);
+const KEY = "urimai.epf.v1";
+let state = {remark:"", decoded:[], ans:{}, goal:"transfer", join:"", exit:"", eps:"", done:{}, built:false, t:{}, g:{}};
+function load(){ try{ const s=JSON.parse(localStorage.getItem(KEY)); if(s && typeof s==="object") state=Object.assign(state,s); }catch(e){} }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){} }
+
+const parseD = s => { if(!s || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return null; const [y,m,d]=s.split("-").map(Number); return new Date(y,m-1,d); };
+const today = () => { const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate()); };
+const addDays = (d,n) => new Date(d.getFullYear(),d.getMonth(),d.getDate()+n);
+function addMonths(d,n){ const r=new Date(d.getFullYear(),d.getMonth()+n,1); const last=new Date(r.getFullYear(),r.getMonth()+1,0).getDate(); r.setDate(Math.min(d.getDate(),last)); return r; }
+const fmt = d => d.toLocaleDateString("en-IN",{day:"numeric",month:"short",year:"numeric"});
+const years = (a,b) => (b-a)/(365.25*24*3600*1000);
+function el(tag, cls, text){ const e=document.createElement(tag); if(cls) e.className=cls; if(text!=null) e.textContent=text; return e; }
+
+/* ---------- decoder ---------- */
+function decode(text){
+  const t = String(text||""); const out=[];
+  for(const id of ORDER){ if(D[id].re.test(t)) out.push(id); }
+  const has = id => out.includes(id), drop = id => { const i=out.indexOf(id); if(i>=0) out.splice(i,1); };
+  if(has("NAME") && has("BANK") && !/aadha+r|date of birth|\bdob\b|gender|father/i.test(t)) drop("NAME");   // a bank-name mismatch is a bank fix
+  if(has("DELAY") && out.length>1) drop("DELAY");                                                          // a named reason beats "pending"
+  if(has("TDS") && has("PAN") && !/\bpan\b.{0,20}(not|mismatch|unverified)/i.test(t)) drop("PAN");
+  if(has("ELIG") && has("EPS") && /10.?c|10.?d|pension/i.test(t)) drop("ELIG");
+  if(has("CLOSED") && has("TRANSFER") && /approv/i.test(t)){ /* employer approval of transfer: keep both */ }
+  return out;
+}
+
+/* ---------- fix path ---------- */
+function pathIds(){
+  const set = new Map();                              // id -> {check:boolean}
+  state.decoded.forEach(id=>set.set(id,{check:false}));
+  if(state.built){
+    QUESTIONS.forEach(q=>{ if(q.info) return; const a=state.ans[q.k];
+      if(a===q.bad) set.set(q.d,{check:false}); else if(a==="unsure" && !set.has(q.d)) set.set(q.d,{check:true}); });
+    const e=entitlement();
+    if(e.elig && !set.has("ELIG")) set.set("ELIG",{check:false});
+    if(state.goal==="eps" && e.epsBlocked && !set.has("EPS")) set.set("EPS",{check:false});
+    if(e.tds && (state.goal==="full"||state.goal==="partial") && !set.has("TDS")) set.set("TDS",{check:true});
+    if(state.goal==="stuck" && !set.has("DELAY")) set.set("DELAY",{check:false});
+  }
+  return ORDER.filter(id=>set.has(id)).map(id=>({id, check:set.get(id).check}));
+}
+function extraNote(id){
+  const a=state.ans;
+  if(id==="NAME"){
+    if(a.aadhaar==="no") return "Your Aadhaar is not linked yet, so this correction goes on paper through the employer to EPFO (E4).";
+    if(a.pre2017==="yes") return a.closed==="yes" ? "Your UAN is older than 1 Oct 2017, so the employer has to certify this, and your employer is closed: use the paper route in the 'Employer is closed' step (E4)." : "Your UAN is older than 1 Oct 2017, so the employer has to certify this correction. Tell HR once you submit it (E4).";
+    if(a.pre2017==="no") return "Your UAN is from 1 Oct 2017 or later, so this is approved without the employer once it matches Aadhaar (E4).";
+  }
+  if(id==="DOE" && a.closed==="yes") return "Your employer is closed, so marking the exit yourself is the route to use (E10).";
+  if(id==="TRANSFER" && a.trust==="yes") return "One past employer had its own trust: that transfer also needs the trust step above.";
+  return "";
+}
+const GOAL_FINAL = {
+ transfer:"File the transfer: Online Services, One Member One EPF Account (Transfer Request). Then check the passbook for the credit and download Annexure K.",
+ partial:"File the part withdrawal: Online Services, Claim, and choose the advance (Form 31). Up to Rs 5 lakh is auto-settled when records are clean (E6).",
+ full:"File the final settlement: Online Services, Claim, Form 19 for PF. Add Form 10C for the pension part only if it is open to you (see the dates below).",
+ eps:"File Form 10C: Online Services, Claim. Choose withdrawal benefit or Scheme Certificate as worked out below.",
+ stuck:"If the claim was rejected, fix the steps above and file it again. A rejected claim is not reopened; a fresh one is needed."
+};
+
+/* ---------- entitlement dates ---------- */
+function entitlement(){
+  const j=parseD(state.join), x=parseD(state.exit), now=today(), out={items:[], elig:false, epsBlocked:false, tds:false};
+  if(!j) return out;
+  const end = x||now, svc = years(j,end), eps = state.eps!=="" ? Number(state.eps) : svc;
+  const y = n => n.toFixed(1).replace(/\.0$/,"");
+  out.items.push({text:`Service counted here: about ${y(svc)} years (${fmt(j)} to ${x?fmt(x):"today"}). This assumes every old account is transferred into the current one.`});
+  if(!x){
+    const p=addMonths(j,12);
+    out.items.push(now>=p ? {text:"Part withdrawal: open now. Up to 75% can be taken; 25% of contributions stays as minimum balance (E7)."} : {warn:true,text:`Part withdrawal: opens on ${fmt(p)}, after 12 months of service (E7).`});
+    if(now<p && state.goal==="partial") out.elig=true;
+    out.items.push({text:"Full settlement and pension withdrawal are not open while you are in a PF job. On a job change, transfer; do not withdraw."});
+    if(state.goal==="full"||state.goal==="eps") out.elig=true;
+  } else {
+    const f=addMonths(x,12), e=addMonths(x,36);
+    out.items.push({text:"Up to 75% of the PF balance: open now, after leaving (E7)."});
+    out.items.push(now>=f ? {text:`Full PF settlement (Form 19): open since ${fmt(f)}, 12 months after leaving (E7).`} : {warn:true,text:`Full PF settlement (Form 19): opens on ${fmt(f)}, 12 months after leaving, if you have not joined another PF job (E7).`});
+    if(now<f && state.goal==="full") out.elig=true;
+    if(eps>=9.5){ out.epsBlocked=true;
+      out.items.push({warn:true,text:`Pension: with ${y(eps)} years of pension service, no lump sum is paid. Take a Scheme Certificate on Form 10C now; a monthly pension starts at 58 on Form 10D, or a reduced one from 50 (E8).`});
+    } else {
+      out.items.push(now>=e ? {text:`Pension (EPS) withdrawal on Form 10C: open since ${fmt(e)} (E7, E8).`} : {warn:true,text:`Pension (EPS) withdrawal on Form 10C: opens on ${fmt(e)}, 36 months after leaving (E7, E8).`});
+      if(now<e && state.goal==="eps") out.elig=true;
+      if(eps>=7) out.items.push({warn:true,text:`You are ${y(10-eps)} years short of a lifelong pension. Withdrawing the pension amount ends that service count; a Scheme Certificate keeps it (E8).`});
+    }
+  }
+  if(svc<5){ out.tds=true; out.items.push({warn:true,text:"Tax: under 5 years of service, a withdrawal of Rs 50,000 or more has 10% TDS (far more without PAN). If your income this year is below the taxable limit, upload Form 121. A transfer avoids this (E9)."}); }
+  else out.items.push({text:"Tax: with 5 years or more of continuous service, no TDS applies to the PF withdrawal (E9)."});
+  return out;
+}
+
+/* ---------- rendering ---------- */
+function card(id, opts){
+  const d=D[id], c=el("div","card"+(opts.check?" check":"")+(state.done[id]?" done":""));
+  const head=el("div","card-head");
+  if(opts.n){ const cb=document.createElement("input"); cb.type="checkbox"; cb.id="done-"+id; cb.checked=!!state.done[id]; cb.setAttribute("aria-label","Done: "+d.title);
+    cb.addEventListener("change",()=>{ state.done[id]=cb.checked; save(); renderPath(); }); head.appendChild(cb); }
+  head.appendChild(el("h3",null,(opts.n?opts.n+". ":"")+d.title)); head.appendChild(el("span","who","Acts: "+d.who)); c.appendChild(head);
+  if(opts.check) c.appendChild(el("span","tag","You were not sure about this. Check it first; skip the step if the portal shows it is fine."));
+  c.appendChild(el("p","note",d.why));
+  const ol=el("ol","do"); d.steps.forEach(s=>ol.appendChild(el("li",null,s))); c.appendChild(ol);
+  const x=opts.n?extraNote(id):""; if(x) c.appendChild(el("p","msg",x));
+  c.appendChild(el("span","tag","Keep ready: "+d.docs));
+  c.appendChild(el("span","tag","Rules: "+d.rules.join(", ")));
+  return c;
+}
+function renderDecoded(){
+  const box=$("decoded"); box.replaceChildren();
+  state.decoded.forEach(id=>box.appendChild(card(id,{})));
+  if(state.decoded.length) box.appendChild(el("p","note","These are added to your Fix Path in section 3, in the order to do them."));
+}
+function renderQuestions(){
+  const box=$("questions"); box.replaceChildren();
+  QUESTIONS.forEach(q=>{
+    const row=el("div","qa"), lab=document.createElement("label"); lab.htmlFor="q-"+q.k; lab.style.fontWeight="400";
+    lab.appendChild(el("span",null,q.q)); if(q.h) lab.appendChild(el("small",null,"Where to look: "+q.h));
+    const sel=document.createElement("select"); sel.id="q-"+q.k;
+    [["","Choose"],["yes","Yes"],["no","No"],["unsure","Not sure"]].forEach(([v,t])=>{ const o=document.createElement("option"); o.value=v; o.textContent=t; sel.appendChild(o); });
+    sel.value=state.ans[q.k]||""; sel.addEventListener("change",()=>{ state.ans[q.k]=sel.value; save(); if(state.built) renderPath(); });
+    row.appendChild(lab); row.appendChild(sel); box.appendChild(row);
+  });
+}
+function renderPath(){
+  const ids=pathIds(), box=$("pathList"); box.replaceChildren();
+  if(!state.built && !ids.length){ box.appendChild(el("p","note","Nothing here yet. Decode a remark in section 1 or answer the check-up in section 2.")); }
+  ids.forEach((p,i)=>box.appendChild(card(p.id,{n:i+1,check:p.check})));
+  if(state.built || ids.length){
+    const fin=el("div","card"); fin.style.borderLeftColor="var(--good)";
+    fin.appendChild(el("h3",null,(ids.length+1)+". "+(ids.length?"Then file the claim":"No blockers found in your answers. File the claim")));
+    fin.appendChild(el("p",null,GOAL_FINAL[state.goal]));
+    fin.appendChild(el("p","note","A complete claim is to be settled in 20 days (E1). If it is not, use section 4."));
+    box.appendChild(fin);
+  }
+  const e=entitlement(), eb=$("ent"); eb.replaceChildren(); $("entWrap").hidden=!e.items.length;
+  e.items.forEach(it=>eb.appendChild(el("div","ent"+(it.warn?" warn":""),it.text)));
+  renderStatus();
+}
+function renderRules(){ const box=$("rules"); RULES.forEach(r=>{ const d=el("div","rule"); d.appendChild(el("b",null,r.id+"  "+r.title)); d.appendChild(el("span",null,r.text)); d.appendChild(el("span","src",r.source)); box.appendChild(d); }); }
+function renderTrack(){
+  const t=state.t, c=parseD(t.claim), g=parseD(t.griev), cp=parseD(t.cp), now=today();
+  const A=$("dueClaim"), B=$("dueGriev"), C=$("dueCp"); [A,B,C].forEach(x=>{ x.className="due"; x.textContent=""; });
+  if(c){ const due=addDays(c,20); A.textContent = now>due ? `The 20 days ended on ${fmt(due)} (E1). ${g?"":"File an EPFiGMS grievance now."}` : `EPFO has until ${fmt(due)} to settle a complete claim (E1).`; if(now>due && !g) A.classList.add("late"); }
+  if(g){ const due=addDays(g,15); B.textContent = now>due ? `The grievance has been open more than 15 days (E2). ${cp?"":"Escalate on CPGRAMS (pgportal.gov.in), Ministry of Labour and Employment, quoting the EPFiGMS number."}` : `EPFO's own limit for this grievance ends on ${fmt(due)} (E2).`; if(now>due && !cp) B.classList.add("late"); }
+  if(cp){ const due=addDays(cp,30); C.textContent = now>due ? "CPGRAMS is unanswered after 30 days. Next: an RTI application to the regional office asking for the file movement of your claim, or the consumer commission, which has awarded interest for unjustified delay." : `Allow CPGRAMS until about ${fmt(due)}, then consider an RTI application or the consumer commission.`; if(now>due) C.classList.add("late"); }
+  renderStatus();
+}
+function renderStatus(){
+  const ids=pathIds(), open=ids.filter(p=>!state.done[p.id]), t=state.t, now=today(); let s;
+  const c=parseD(t.claim), g=parseD(t.griev);
+  if(open.length) s=`${open.length} fix${open.length>1?"es":""} to do. Start with: ${D[open[0].id].title}.`;
+  else if(g && now>addDays(g,15) && !t.cp) s="The grievance is past 15 days. Escalate on CPGRAMS (section 4).";
+  else if(c && now>addDays(c,20) && !g) s="The claim is past 20 days. Write and file the grievance in section 4.";
+  else if(c) s="Claim filed. Watch the date in section 4.";
+  else if(ids.length || state.built) s="Records look clear. File the claim and enter the date in section 4.";
+  else s="Paste a rejection remark, or answer the check-up questions.";
+  $("statusText").textContent=s;
+}
+
+/* ---------- grievance text ---------- */
+function grievance(){
+  const g=state.g, t=state.t, c=parseD(t.claim), now=today(), ids=pathIds();
+  const type=g.type||"Final PF settlement (Form 19)", days=c?Math.round((now-c)/86400000):null;
+  const L=[];
+  L.push(`Subject: ${type} - ${g.state==="rejected"?"claim rejected, request to state the exact deficiency and process":"claim pending beyond time limit, request to settle"}`);
+  L.push(""); L.push("UAN: [your UAN]"); L.push("Member ID: [your member ID]"); if(g.id) L.push("Claim ID: "+g.id); L.push("");
+  L.push(`I filed a ${type} claim${g.id?" (ID "+g.id+")":""}${c?" on "+fmt(c):" on [date]"}.`);
+  if(g.state==="rejected") L.push(`It was rejected/returned with this remark: "${(state.remark||"[paste the remark]").trim()}".`);
+  else L.push(days!=null ? `It has been pending for ${days} days with no reason shown in Track Claim Status.` : "It is pending with no reason shown in Track Claim Status.");
+  const done=ids.filter(p=>state.done[p.id]), open=ids.filter(p=>!state.done[p.id]&&!p.check);
+  if(done.length){ L.push(""); L.push("I have already corrected the following on the member portal:"); done.forEach(p=>L.push("- "+D[p.id].title)); }
+  if(open.length){ L.push(""); L.push("I need EPFO's help with the following, which I cannot complete myself:"); open.forEach(p=>L.push("- "+D[p.id].title)); }
+  L.push(""); L.push("Request:");
+  L.push(g.state==="rejected" ? "1. Please state the exact deficiency and the document or correction required, so that I can re-file once." : "1. Please settle the claim, or state in writing what is holding it.");
+  if(days!=null && days>20) L.push("2. The claim is past the 20-day limit for settling a complete claim under the Scheme. Please also confirm the date of settlement.");
+  L.push(`${days!=null && days>20?"3":"2"}. Please do not close this grievance until the claim is settled or a specific reason is given.`);
+  L.push(""); L.push("Attached: screenshot of claim status" + (g.state==="rejected"?", rejection remark":"") + ", KYC status page.");
+  return L.join("\n");
+}
+
+/* ---------- optional AI reading of an unknown remark ---------- */
+async function aiRead(){
+  const note=$("decodeNote");
+  if(typeof puter==="undefined" || !puter.ai){ note.textContent="The AI service did not load. Send the remark with your feedback instead."; return; }
+  $("aiBtn").disabled=true; note.textContent="Asking AI. Puter may ask you to sign in.";
+  try{
+    const list=ORDER.map(id=>`${id}: ${D[id].title}`).join("\n");
+    const r=await puter.ai.chat(`An EPFO (India) claim was rejected with the remark between the markers. Choose which of these record problems it most likely means. Use only these ids. Return ONLY JSON: {"ids":[string]}. If none fit, return {"ids":[]}.\n\n${list}\n\n<<<REMARK\n${state.remark.slice(0,800)}\nREMARK>>>`, {normalize:true});
+    const c=r && r.message && r.message.content, txt=typeof c==="string"?c:Array.isArray(c)?c.map(b=>b&&b.text||"").join(""):String(r||"");
+    const a=txt.indexOf("{"), b=txt.lastIndexOf("}"); const ids=(JSON.parse(txt.slice(a,b+1)).ids||[]).filter(id=>D[id]);
+    if(ids.length){ state.decoded=ORDER.filter(id=>ids.includes(id)); save(); renderDecoded(); renderPath(); note.textContent="AI's reading is shown below. Check it against the remark."; $("aiBtn").hidden=true; }
+    else note.textContent="AI could not place this remark either. Send it with your feedback so it can be added.";
+  }catch(e){ note.textContent="The AI reading did not finish. Try again, or use the check-up in section 2."; }
+  $("aiBtn").disabled=false;
+}
+
+/* ---------- wiring ---------- */
+function runDecode(){
+  state.remark=$("remark").value; const note=$("decodeNote"); $("aiBtn").hidden=true;
+  if(!state.remark.trim()){ note.textContent="Paste the remark first."; return; }
+  state.decoded=decode(state.remark); save(); renderDecoded(); renderPath();
+  if(state.decoded.length) note.textContent=`${state.decoded.length} likely cause${state.decoded.length>1?"s":""} found.`;
+  else { note.textContent="This remark is not in the decoder yet. Use the check-up in section 2, or let AI read it."; $("aiBtn").hidden=false; }
+}
+function init(){
+  load();
+  $("remark").value=state.remark; $("goal").value=state.goal; $("dJoin").value=state.join; $("dExit").value=state.exit; $("epsYears").value=state.eps;
+  EXAMPLES.forEach(t=>{ const b=el("button","eg",t); b.type="button"; b.addEventListener("click",()=>{ $("remark").value=t; runDecode(); }); $("examples").appendChild(b); });
+  $("decodeBtn").addEventListener("click",runDecode); $("aiBtn").addEventListener("click",aiRead);
+  $("goal").addEventListener("change",e=>{ state.goal=e.target.value; save(); if(state.built) renderPath(); });
+  [["dJoin","join"],["dExit","exit"],["epsYears","eps"]].forEach(([id,k])=>$(id).addEventListener("input",e=>{ state[k]=e.target.value; save(); renderPath(); }));
+  $("buildBtn").addEventListener("click",()=>{ state.built=true; save(); renderPath(); $("path").scrollIntoView({block:"start"}); });
+  $("resetBtn").addEventListener("click",()=>{ try{ localStorage.removeItem(KEY); }catch(e){} state={remark:"",decoded:[],ans:{},goal:"transfer",join:"",exit:"",eps:"",done:{},built:false,t:{},g:{}};
+    ["remark","dJoin","dExit","epsYears","tClaim","tGriev","tCp","gId","griev"].forEach(i=>$(i).value=""); $("goal").value="transfer"; $("decodeNote").textContent=""; renderQuestions(); renderDecoded(); renderPath(); renderTrack(); });
+  [["tClaim","claim"],["tGriev","griev"],["tCp","cp"]].forEach(([id,k])=>{ $(id).value=state.t[k]||""; $(id).addEventListener("input",e=>{ state.t[k]=e.target.value; save(); renderTrack(); }); });
+  $("gType").value=state.g.type||$("gType").value; $("gId").value=state.g.id||""; $("gState").value=state.g.state||"pending";
+  $("gType").addEventListener("change",e=>{ state.g.type=e.target.value; save(); }); $("gId").addEventListener("input",e=>{ state.g.id=e.target.value; save(); }); $("gState").addEventListener("change",e=>{ state.g.state=e.target.value; save(); });
+  $("gBtn").addEventListener("click",()=>{ state.g.type=$("gType").value; state.g.state=$("gState").value; $("griev").value=grievance(); $("gNote").textContent="Fill the [brackets], then file at epfigms.gov.in."; });
+  $("gCopy").addEventListener("click",async()=>{ try{ await navigator.clipboard.writeText($("griev").value); $("gNote").textContent="Copied."; }catch(e){ $("griev").select(); $("gNote").textContent="Select the text and copy it."; } });
+  renderQuestions(); renderRules(); renderDecoded(); renderPath(); renderTrack();
+}
+if(typeof document!=="undefined") init();
+if(typeof module!=="undefined") module.exports={decode,D,ORDER,EXAMPLES};
+</script>
+</body>
+</html>
